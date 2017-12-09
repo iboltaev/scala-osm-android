@@ -1,3 +1,5 @@
-addSbtPlugin("com.hanhuy.sbt" % "android-sdk-plugin" % "1.5.19")
+resolvers += Resolver.url("scalasbt releases", new URL("http://scalasbt.artifactoryonline.com/scalasbt/sbt-plugin-snapshots"))(Resolver.ivyStylePatterns)
 
-libraryDependencies += "net.sf.proguard" % "proguard-base" % "5.2.1"
+//addSbtPlugin("com.hanhuy.sbt" % "sbt-idea" % "1.7.0-SNAPSHOT")
+
+addSbtPlugin("com.hanhuy.sbt" % "android-sdk-plugin" % "1.3.11")

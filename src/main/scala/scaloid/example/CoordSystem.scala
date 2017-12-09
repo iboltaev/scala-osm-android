@@ -4,7 +4,9 @@ import scala.collection.immutable._
 import scala.language.implicitConversions
 
 
-case class MapCoordinateSystem(start: Math.Vector2, basis: Math.Matrix2, scale: Int) {
+case class MapCoordinateSystem(
+  start: Math.Vector2, basis: Math.Matrix2, scale: Int) {
+
   lazy val inverse = basis.inv
 
   def toScreen(r: Math.Vector2): Math.Vector2 = basis * (r - start)
@@ -23,45 +25,23 @@ case class MapCoordinateSystem(start: Math.Vector2, basis: Math.Matrix2, scale: 
     val pf1 = toWorldXY(prevFingers._1)
     val pf2 = toWorldXY(prevFingers._2)
 
-    // NBI * nextFingers._1 + NS = pf1
-    // NBI * nextFingers._2 + NS = pf2
-    // find NBI, NS  -> new start, new inverse basis
-    /*
-     X0  * nf1.0 + X1 * nf1.1 = pf1.0 - y0
-     -X1 * nf1.0 + X0 * nf1.1 = pf1.1 - y1; X = (X0, X1), - inverse new basis, NBI
-     X0  * nf2.0 + X1 * nf2.1 = pf2.0 - y0; y = (y0, y1) - new start, NS
-     -X1 * nf2.0 + X0 * nf2.1 = pf2.1 - y1
-
-     orthoBasis2(nf1.0, nf1.1) * X = pf1 - y
-     orthoBasis2(nf2.0, nf2.1) * X = pf2 - y
-
-     X = orthoBasis2(nf1).inv * (pf1 - y)
-     X = orthoBasis2(nf2).inv * (pf2 - y)
-
-     (orthoBasis2(nf2).inv - orthoBasis2(nf1).inv) * y = orthoBasis2(nf2).inv * pf2 - orthoBasis2(nf1).inv * pf1
-     y = (orthoBasis2(nf2).inv - orthoBasis2(nf1).inv).inv * (orthoBasis2(nf2).inv * pf2 - orthoBasis2(nf1).inv * pf1)
-     */
-
     val obnf1 = Math.orthoMatrix2(nextFingers._1.x, nextFingers._1.y)
     val obnf2 = Math.orthoMatrix2(nextFingers._2.x, nextFingers._2.y)
 
     val y = (obnf2.inv - obnf1.inv).inv * (obnf2.inv * pf2 - obnf1.inv * pf1)
     val x = obnf1.inv * (pf1 - y)
+    val m = Math.orthoMatrix1(x.x, x.y).inv
+    val v = Math.Vector2(m.x00, m.x01)
 
-    MapCoordinateSystem(y, Math.orthoMatrix1(x.x, x.y).inv, scale)
-  }
-
-  def toMatrix: android.graphics.Matrix = {
-    val result = new android.graphics.Matrix()
-    val (x00, x01, x10, x11) = (basis.x00.toFloat, basis.x01.toFloat, basis.x10.toFloat, basis.x11.toFloat)
-    val (x, y) = (start.x.toFloat, start.y.toFloat)
-    val array = Array[Float](
-      x00, x01, -x00 * x - x01 * y,
-      x10, x11, -x10 * x - x11 * y,
-      0.0f, 0.0f, 1.0f)
-
-    result.setValues(array)
-    result
+    if (v.mod >= 512 * 512) {
+      MapCoordinateSystem(
+        y * 2, m * 0.5, scale + 1)
+    } else if (v.mod <= 128 * 128) {
+      MapCoordinateSystem(
+        y * 0.5, m * 2, scale - 1)
+    } else {
+      MapCoordinateSystem(y, m, scale)
+    }
   }
 
   def bfs(

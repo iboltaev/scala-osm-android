@@ -25,6 +25,7 @@ object Math {
 
     def +(r: Vector2) = Vector2(x + r.x, y + r.y)
     def -(r: Vector2) = Vector2(x - r.x, y - r.y)
+    def *(d: Double) = Vector2(x * d, y * d)
 
     lazy val mod = x * x + y * y
   }

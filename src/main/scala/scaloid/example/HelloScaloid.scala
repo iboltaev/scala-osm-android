@@ -23,6 +23,14 @@ import java.nio.ShortBuffer
 import javax.microedition.khronos.egl.EGLConfig
 import javax.microedition.khronos.opengles.GL10
 
+import akka.stream._
+import akka.stream.scaladsl._
+
+import akka.actor.ActorSystem
+import akka.util.ByteString
+import scala.concurrent._
+import scala.concurrent.duration._
+import java.nio.file.Paths
 
 object Shaders {
   lazy val program = {
@@ -113,6 +121,8 @@ case class Tile(x: Int, y: Int, z: Int) {
   def clear(): Unit = {
     if (haveTexture)
       GLES20.glDeleteTextures(1, texturenames, 0)
+
+    haveTexture = false
   }
 
   def setTexture(bitmap: Bitmap): Unit = {
@@ -169,8 +179,6 @@ case class Tile(x: Int, y: Int, z: Int) {
     vertexBuffer.put(squareCoords)
     vertexBuffer.position(0)
 
-    Log.e("ScalaMap", "v1: " + v1 + ", v2: " + v2 + ", v3: " + v3 + ", v4: " + v4)
-
     mPositionHandle = GLES20.glGetAttribLocation(program, "vPosition")
     GLES20.glEnableVertexAttribArray(mPositionHandle)
     GLES20.glVertexAttribPointer(
@@ -208,32 +216,30 @@ object TileCache {
   type TileCoord = (Int, Int, Int)
 
   def loadTiles(tiles: Seq[TileCoord]): Seq[Tile] = {
-    Log.e("ScalaMap", cache.toList.toString)
-    val inCache = tiles.flatMap(cache.get(_).toSeq)
-    Log.e("ScalaMap", "inCache: " + inCache.toList.toString)
+    val inCache = tiles.flatMap { tc => cache.get(tc).toSeq }
+    // fake varible to overrun compiler bug with lazy eval
+    val icSize = inCache.size
     val outCache = tiles.filter(!cache.contains(_)).toList
-    Log.e("ScalaMap", "outCache: " + outCache.toString)
     val newTiles = outCache.map { tc =>
       val tile = new Tile(tc._1, tc._2, tc._3)
-      tile.setTexture(TileRenderer.renderTile(tc._1, tc._2, tc._3, 1.0f))
+      tile.setTexture(
+        TileRenderer.renderTile(tc._1, tc._2, tc._3, 1.0f))
       tile
     }
     
     for (tc <- tiles) {
-      Log.e("ScalaMap", "remove " + tc._1 + ":" + tc._2 + ":" + tc._3)
       cache.remove(tc)
     }
 
     val result = inCache ++ newTiles
+    // Fake variable to overrun compiler bug with lazy eval
+    val resSize = result.size
 
     for (t <- result) {
-      Log.e("ScalaMap", "Put " + t.x + ":" + t.y + ":" + t.z)
       cache.put((t.x, t.y, t.z), t)
     }
 
     shrink()
-
-    Log.e("ScalaMap", "cache after: " + cache.toList.toString)
 
     result
   }
@@ -247,7 +253,7 @@ object TileCache {
     }
   }
 
-  private val maxCacheSize = 32
+  private val maxCacheSize = 64
   private var cache = scala.collection.mutable.LinkedHashMap[TileCoord, Tile]()
 }
 
@@ -305,7 +311,7 @@ class MyGLRenderer(cs: => MapCoordinateSystem)
       val coord = cs
       val tileIdxs = coord.visibleTiles(screenW, screenH)
       Log.e("ScalaMap", tileIdxs.toList.toString)
-      val tiles = TileCache.loadTiles(tileIdxs.map { case (x, y) => (x, y, 11)})
+      val tiles = TileCache.loadTiles(tileIdxs.map { case (x, y) => (x, y, coord.scale)})
       tiles.foreach(_.draw(coord, screenW, screenH))
     }
   }
@@ -332,6 +338,9 @@ class MyView(context: HelloScaloid) extends GLSurfaceView(context) {
   var coordSystem = new AtomicReference(MapCoordinateSystem(
       offset, Math.Matrix2.identity * 256, mapScale))
 
+  implicit lazy val system = ActorSystem("QuickStart")
+  implicit lazy val materializer = ActorMaterializer()
+
   override def onTouchEvent(e: MotionEvent): Boolean = {
     gestureRecognizer = gestureRecognizer.nextEvent(e)
     gestureRecognizer.gesture.foreach {
@@ -348,31 +357,6 @@ class MyView(context: HelloScaloid) extends GLSurfaceView(context) {
 
     true
   }
-
-  /*
-  override def onDraw(canvas: Canvas): Unit = {
-    import Math._
-
-    val screenW = getResources.getDisplayMetrics.widthPixels
-    val screenH = getResources.getDisplayMetrics.heightPixels
-    val scale = getResources.getDisplayMetrics.density
-
-
-    val paint = new Paint()
-      //paint.setAntiAlias(true)
-
-    canvas.setMatrix(coordSystem.toMatrix)
-    val tiles = coordSystem.visibleTiles(screenW, screenH)
-    tiles.foreach { case (x, y) =>
-      val bmp = TileRenderer.renderTile(x, y, mapScale, scale)
-      canvas.drawBitmap(bmp, x * 256, y * 256, paint)
-    }
-
-    Log.e("ScalaMapDraw", tiles.toList.toString)
-    Log.e("ScalaMapDraw", "isHardwareAcccelerated: " + canvas.isHardwareAccelerated())
-  }
-   */
-
 }
 
 class HelloScaloid extends SActivity {
