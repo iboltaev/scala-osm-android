@@ -2,9 +2,9 @@ package org.openstreetmap.sample
 
 import org.scaloid.common._
 
-import scala.annotation.tailrec
-import scala.collection.immutable._
-import scala.language.implicitConversions
+import rx.lang.scala._
+import rx.lang.scala.observables.{AsyncOnSubscribe, SyncOnSubscribe}
+import rx.lang.scala.schedulers._
 
 import android.graphics._
 import android.view._
@@ -15,6 +15,12 @@ import android.opengl.GLSurfaceView
 import android.opengl.Matrix
 import android.opengl.GLUtils
 
+import scala.annotation.tailrec
+import scala.collection.immutable._
+import scala.language.implicitConversions
+import scala.concurrent._
+import scala.concurrent.duration._
+
 import java.nio.ByteBuffer
 import java.nio.ByteOrder
 import java.nio.FloatBuffer
@@ -23,14 +29,9 @@ import java.nio.ShortBuffer
 import javax.microedition.khronos.egl.EGLConfig
 import javax.microedition.khronos.opengles.GL10
 
-import akka.stream._
-import akka.stream.scaladsl._
-
-import akka.actor.ActorSystem
-import akka.util.ByteString
-import scala.concurrent._
-import scala.concurrent.duration._
 import java.nio.file.Paths
+
+import java.lang.Runnable
 
 object Shaders {
   lazy val program = {
@@ -72,7 +73,7 @@ object Shaders {
     "}";
 }
 
-case class Tile(x: Int, y: Int, z: Int) {
+case class Tile(x: Int, y: Int, z: Int)(textureStream: Observable[Bitmap]) {
   val program = Shaders.program
 
   var vertexBuffer: FloatBuffer = null
@@ -117,8 +118,19 @@ case class Tile(x: Int, y: Int, z: Int) {
   drawListBuffer.position(0)
 
   var haveTexture: Boolean = false
+  var closed: Boolean = false
+
+  val subscription = textureStream(Subscriber { bmp: Bitmap =>
+    MyView.runOnRenderThread { setTexture(bmp) }
+  })
 
   def clear(): Unit = {
+    closed = true
+    subscription.unsubscribe()
+    cleanTexture()
+  }
+
+  private def cleanTexture(): Unit = {
     if (haveTexture)
       GLES20.glDeleteTextures(1, texturenames, 0)
 
@@ -126,7 +138,10 @@ case class Tile(x: Int, y: Int, z: Int) {
   }
 
   def setTexture(bitmap: Bitmap): Unit = {
-    clear()
+    cleanTexture()
+
+    if (closed)
+      return
 
     haveTexture = true
     GLES20.glGenTextures(1, texturenames, 0);
@@ -151,9 +166,6 @@ case class Tile(x: Int, y: Int, z: Int) {
     
     // Load the bitmap into the bound texture.
     GLUtils.texImage2D(GLES20.GL_TEXTURE_2D, 0, bitmap, 0);
-
-    // We are done using the bitmap so we should recycle it.
-    bitmap.recycle();
   }
 
   def draw(cs: MapCoordinateSystem, width: Int, height: Int): Unit = {
@@ -215,17 +227,13 @@ case class Tile(x: Int, y: Int, z: Int) {
 object TileCache {
   type TileCoord = (Int, Int, Int)
 
-  def loadTiles(tiles: Seq[TileCoord]): Seq[Tile] = {
+  def loadTiles(tiles: Seq[TileCoord], mkTile: TileCoord => Tile): Seq[Tile] = {
     val inCache = tiles.flatMap { tc => cache.get(tc).toSeq }
     // fake varible to overrun compiler bug with lazy eval
     val icSize = inCache.size
     val outCache = tiles.filter(!cache.contains(_)).toList
-    val newTiles = outCache.map { tc =>
-      val tile = new Tile(tc._1, tc._2, tc._3)
-      tile.setTexture(
-        TileRenderer.renderTile(tc._1, tc._2, tc._3, 1.0f))
-      tile
-    }
+
+    val newTiles = outCache.map(mkTile)
     
     for (tc <- tiles) {
       cache.remove(tc)
@@ -249,7 +257,7 @@ object TileCache {
       Log.e("ScalaMap", "shrink " + cache.size.toString)
       val old = cache.take(cache.size - maxCacheSize)
       old.foreach(_._2.clear())
-      cache = cache.drop(cache.size - maxCacheSize)
+      old.foreach { case (coord, _) => cache -= coord }
     }
   }
 
@@ -257,40 +265,18 @@ object TileCache {
   private var cache = scala.collection.mutable.LinkedHashMap[TileCoord, Tile]()
 }
 
-object TileRenderer {
-  def renderTile(x: Int, y: Int, z: Int, scale: Float): Bitmap = {
-    val size = 1 << z
-    render(x % size, y % size, z % size, scale)
-  }
-  
-  private def render(x: Int, y: Int, z: Int, scale: Float): Bitmap = {
-    // lazies is a compiler bug workaround
-    lazy val text = x + ":" + y + ":" + z
-    lazy val colors = Array.fill(256 * 256)(0xFFFFFFFF)
-    lazy val bmp = Bitmap.createBitmap(colors, 256, 256, Bitmap.Config.ARGB_8888)
-    lazy val mutableBmp = bmp.copy(Bitmap.Config.ARGB_8888, true)
-    lazy val canvas = new Canvas(mutableBmp)
-    lazy val paint = new Paint(Paint.ANTI_ALIAS_FLAG)
-    paint.setColor(Color.rgb(0, 0, 0))
-    paint.setTextSize(14 * scale)
-    lazy val bounds = new Rect()
-    paint.getTextBounds(text, 0, text.length, bounds)
-    lazy val xd = (mutableBmp.getWidth() - bounds.width())/2
-    lazy val yd = (mutableBmp.getHeight() + bounds.height())/2
-    canvas.drawText(text, xd.toFloat, yd.toFloat, paint)
-
-    Log.e("ScalaMap", "Render tile")
-
-    mutableBmp
-  }
-}
-
-
 class MyGLRenderer(cs: => MapCoordinateSystem) 
     extends GLSurfaceView.Renderer {
   
   var screenW: Int = 0
   var screenH: Int = 0
+
+  def makeTile(tc: TileCache.TileCoord): Tile = {
+    val tile = new Tile(tc._1, tc._2, tc._3)(BitmapLoader.bitmap(tc))
+    tile.setTexture(
+      EmptyTileRenderer.renderTile(tc._1, tc._2, tc._3, 1.0f))
+    tile
+  }
 
   override def onSurfaceCreated(u: GL10, config: EGLConfig): Unit = {
     GLES20.glClearColor(0.0f, 0.0f, 0.0f, 1.0f)
@@ -302,16 +288,15 @@ class MyGLRenderer(cs: => MapCoordinateSystem)
   }
 
   override def onDrawFrame(u: GL10): Unit = {
-    //GLES20.glClear(
-      //GLES20.GL_COLOR_BUFFER_BIT | GLES20.GL_DEPTH_BUFFER_BIT);
-
     Log.e("ScalaMap", "w: " + screenW + ", h: " + screenH)
 
     if (screenW != 0 && screenH != 0) {
       val coord = cs
       val tileIdxs = coord.visibleTiles(screenW, screenH)
       Log.e("ScalaMap", tileIdxs.toList.toString)
-      val tiles = TileCache.loadTiles(tileIdxs.map { case (x, y) => (x, y, coord.scale)})
+      val tiles = TileCache.loadTiles(
+        tileIdxs.map { case (x, y) => (x, y, coord.scale)},
+        makeTile)
       tiles.foreach(_.draw(coord, screenW, screenH))
     }
   }
@@ -338,9 +323,6 @@ class MyView(context: HelloScaloid) extends GLSurfaceView(context) {
   var coordSystem = new AtomicReference(MapCoordinateSystem(
       offset, Math.Matrix2.identity * 256, mapScale))
 
-  implicit lazy val system = ActorSystem("QuickStart")
-  implicit lazy val materializer = ActorMaterializer()
-
   override def onTouchEvent(e: MotionEvent): Boolean = {
     gestureRecognizer = gestureRecognizer.nextEvent(e)
     gestureRecognizer.gesture.foreach {
@@ -359,18 +341,38 @@ class MyView(context: HelloScaloid) extends GLSurfaceView(context) {
   }
 }
 
+object MyView {
+  // quick & dirty singleton
+  private var instanceOpt: Option[MyView] = None
+
+  def instance: Option[MyView] = instanceOpt
+
+  def instance(context: HelloScaloid): MyView = {
+    if (instanceOpt.isEmpty)
+      instanceOpt = Some(new MyView(context))
+
+    instanceOpt.get
+  }
+
+  def runOnRenderThread(f: => Unit): Unit = {
+    instanceOpt.foreach { view =>
+      view.queueEvent(new Runnable {
+        override def run(): Unit = { f }
+      })
+    }
+  }
+}
+
 class HelloScaloid extends SActivity {
-  var view: Option[MyView] = None
   onCreate {
-    view = Some(new MyView(this))
-    contentView = view.get
+    contentView = MyView.instance(this)
   }
 
   onPause {
-    view.foreach(_.onPause())
+    MyView.instance.foreach(_.onPause())
   }
 
   onResume {
-    view.foreach(_.onResume())
+    MyView.instance.foreach(_.onResume())
   }
 }

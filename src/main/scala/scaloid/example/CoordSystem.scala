@@ -52,8 +52,8 @@ case class MapCoordinateSystem(
     if (q.isEmpty) Stream.empty
     else if (visited.contains(q.head)) bfs(q.tail, neighbours, visited)
     else q.head #:: bfs(
-      q.tail ++ neighbours(q.head._1, q.head._2), 
-      neighbours, 
+      q.tail ++ neighbours(q.head._1, q.head._2).filterNot(visited.contains), 
+      neighbours,
       visited + q.head)
   }
 
@@ -84,6 +84,17 @@ case class MapCoordinateSystem(
       (c.x.toInt, c.y.toInt)
     }
 
-    bfs(Queue() ++ transformed, tileNeighbours)
+    val tiles = bfs(Queue() ++ transformed, tileNeighbours)
+
+    // center tiles - first
+    tiles.sortWith { (p1, p2) =>
+      val (c1, c2) = ((p1._1 + 0.5, p1._2 + 0.5), (p2._1 + 0.5, p2._2 + 0.5))
+      val (s1, s2) = (toScreen(Math.Vector2(c1)), toScreen(Math.Vector2(c2)))
+      val (d1, d2) = (
+        (s1.x - screenW/2, s1.y - screenH/2),
+        (s2.x - screenW/2, s2.y - screenH/2))
+
+      (d1._1 * d1._1 + d1._2 * d1._2) < (d2._1 * d2._1 + d2._2 * d2._2)
+    }
   }
 }

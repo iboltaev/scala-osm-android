@@ -30,6 +30,10 @@ object Math {
     lazy val mod = x * x + y * y
   }
 
+  object Vector2 {
+    def apply(p: (Double, Double)): Vector2 = apply(p._1, p._2)
+  }
+
   implicit def *(m: Matrix2, v: Vector2): Vector2 = 
     Vector2(m.x00 * v.x + m.x01 * v.y, m.x10 * v.x + m.x11 * v.y)
 
