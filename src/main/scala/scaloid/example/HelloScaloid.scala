@@ -234,7 +234,7 @@ class MyGLRenderer(cs: => MapCoordinateSystem)
 
   def makeTile(tc: Types.TileCoord): Tile = {
     Log.e("ScalaMap", s"makeTile ${tc}")
-    val tile = new Tile(tc._1, tc._2, tc._3)(BitmapLoader.bitmap(tc))
+    val tile = new Tile(tc._1, tc._2, tc._3)(BitmapLoader.bitmap(Types.normalize(tc)))
     tile.setTexture(
       EmptyTileRenderer.renderTile(tc._1, tc._2, tc._3, 1.0f))
     tile
@@ -258,8 +258,7 @@ class MyGLRenderer(cs: => MapCoordinateSystem)
       Log.e("ScalaMap", tileIdxs.toList.toString)
       val tiles = tileCache.get(
         tileIdxs
-          .map { case (x, y) => (x, y, coord.scale)}
-          .map(Types.normalize)
+          .map { case (x, y) => (x, y, coord.scale) }
           .toList,
         makeTile)
       tiles.foreach(_.draw(coord, screenW, screenH))
