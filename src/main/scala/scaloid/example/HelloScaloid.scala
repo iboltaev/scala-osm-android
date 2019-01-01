@@ -224,54 +224,13 @@ case class Tile(x: Int, y: Int, z: Int)(textureStream: Observable[Bitmap]) {
   }
 }
 
-object TileCache {
-  type TileCoord = (Int, Int, Int)
-
-  def loadTiles(tiles: Seq[TileCoord], mkTile: TileCoord => Tile): Seq[Tile] = {
-    val inCache = tiles.flatMap { tc => cache.get(tc).toSeq }
-    // fake varible to overrun compiler bug with lazy eval
-    val icSize = inCache.size
-    val outCache = tiles.filter(!cache.contains(_)).toList
-
-    val newTiles = outCache.map(mkTile)
-    
-    for (tc <- tiles) {
-      cache.remove(tc)
-    }
-
-    val result = inCache ++ newTiles
-    // Fake variable to overrun compiler bug with lazy eval
-    val resSize = result.size
-
-    for (t <- result) {
-      cache.put((t.x, t.y, t.z), t)
-    }
-
-    shrink()
-
-    result
-  }
-
-  private def shrink(): Unit = {
-    if (cache.size > maxCacheSize) {
-      Log.e("ScalaMap", "shrink " + cache.size.toString)
-      val old = cache.take(cache.size - maxCacheSize)
-      old.foreach(_._2.clear())
-      old.foreach { case (coord, _) => cache -= coord }
-    }
-  }
-
-  private val maxCacheSize = 64
-  private var cache = scala.collection.mutable.LinkedHashMap[TileCoord, Tile]()
-}
-
 class MyGLRenderer(cs: => MapCoordinateSystem) 
     extends GLSurfaceView.Renderer {
-  
+
   var screenW: Int = 0
   var screenH: Int = 0
 
-  def makeTile(tc: TileCache.TileCoord): Tile = {
+  def makeTile(tc: Types.TileCoord): Tile = {
     val tile = new Tile(tc._1, tc._2, tc._3)(BitmapLoader.bitmap(tc))
     tile.setTexture(
       EmptyTileRenderer.renderTile(tc._1, tc._2, tc._3, 1.0f))
@@ -294,12 +253,14 @@ class MyGLRenderer(cs: => MapCoordinateSystem)
       val coord = cs
       val tileIdxs = coord.visibleTiles(screenW, screenH)
       Log.e("ScalaMap", tileIdxs.toList.toString)
-      val tiles = TileCache.loadTiles(
+      val tiles = tileCache.get(
         tileIdxs.map { case (x, y) => (x, y, coord.scale)},
         makeTile)
       tiles.foreach(_.draw(coord, screenW, screenH))
     }
   }
+
+  private def tileCache = new LRUCache[Types.TileCoord, Tile](64, _.clear())
 }
 
 class MyView(context: HelloScaloid) extends GLSurfaceView(context) {

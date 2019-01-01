@@ -13,14 +13,16 @@ object Build extends android.AutoBuild {
   )
 
   val buildSettings = android.Plugin.androidBuild ++
-    Seq(libraryDependencies ++= Scaloid ++ Rx ++ HttpBlaze ++ Scalatest,
+  Seq(libraryDependencies ++= Scaloid ++ Rx ++ HttpBlaze ++ Scalatest,
+      scalaVersion := "2.11.8",
       externalResolvers := Resolver.withDefaultResolvers(resolvers),
       javacOptions ++= Seq("-source", "1.7", "-target", "1.7"),
       scalacOptions ++= Seq("-feature","-target:jvm-1.7"),
       dexMulti in Android := true,
       proguardOptions in Android ++= Seq("@project/proguard.cfg"),
       useProguard in Android := true,
-      apkbuildExcludes in Android ++= Seq("reference.conf")
+      apkbuildExcludes in Android ++= Seq("reference.conf"),
+      sourceGenerators in Compile := Seq((sourceGenerators in Compile).value.last)
     )
 
   val main = Project(
@@ -45,11 +47,10 @@ object Dependencies {
 
   val Scalatest = Seq("org.scalatest" %% "scalatest" % "3.0.5" % "test")
 
-  val HttpBlaze = Seq("org.http4s" %% "blaze-http" % "0.13.0")
+  val HttpBlaze = Seq("org.http4s" %% "blaze-http" % "0.14.0-M5")
 
   object Versions {
-    val AkkaVersion = "2.3.3"
-    val ScaloidVersion = "3.3-8"
+    val ScaloidVersion = "4.2"
   }
 
 }

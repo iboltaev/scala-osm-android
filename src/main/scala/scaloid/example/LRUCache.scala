@@ -1,3 +1,4 @@
+package org.openstreetmap.sample
 
 class LRUCache[K, V](size: Int, dispose: V => Unit) {
 
