@@ -13,7 +13,7 @@ object Build extends android.AutoBuild {
   )
 
   val buildSettings = android.Plugin.androidBuild ++
-  Seq(libraryDependencies ++= Scaloid ++ Rx ++ HttpBlaze ++ Scalatest,
+  Seq(libraryDependencies ++= Scaloid ++ Rx ++ OkHttp ++ Scalatest,
       scalaVersion := "2.11.8",
       externalResolvers := Resolver.withDefaultResolvers(resolvers),
       javacOptions ++= Seq("-source", "1.7", "-target", "1.7"),
@@ -47,7 +47,7 @@ object Dependencies {
 
   val Scalatest = Seq("org.scalatest" %% "scalatest" % "3.0.5" % "test")
 
-  val HttpBlaze = Seq("org.http4s" %% "blaze-http" % "0.14.0-M5")
+  val OkHttp = Seq("com.squareup.okhttp3" % "okhttp" % "3.12.1")
 
   object Versions {
     val ScaloidVersion = "4.2"

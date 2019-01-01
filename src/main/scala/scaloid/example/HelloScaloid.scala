@@ -138,6 +138,8 @@ case class Tile(x: Int, y: Int, z: Int)(textureStream: Observable[Bitmap]) {
   }
 
   def setTexture(bitmap: Bitmap): Unit = {
+    Log.e("ScalaMap", "setTexture")
+
     cleanTexture()
 
     if (closed)
@@ -231,6 +233,7 @@ class MyGLRenderer(cs: => MapCoordinateSystem)
   var screenH: Int = 0
 
   def makeTile(tc: Types.TileCoord): Tile = {
+    Log.e("ScalaMap", s"makeTile ${tc}")
     val tile = new Tile(tc._1, tc._2, tc._3)(BitmapLoader.bitmap(tc))
     tile.setTexture(
       EmptyTileRenderer.renderTile(tc._1, tc._2, tc._3, 1.0f))
@@ -254,13 +257,13 @@ class MyGLRenderer(cs: => MapCoordinateSystem)
       val tileIdxs = coord.visibleTiles(screenW, screenH)
       Log.e("ScalaMap", tileIdxs.toList.toString)
       val tiles = tileCache.get(
-        tileIdxs.map { case (x, y) => (x, y, coord.scale)},
+        tileIdxs.map { case (x, y) => (x, y, coord.scale)}.toList,
         makeTile)
       tiles.foreach(_.draw(coord, screenW, screenH))
     }
   }
 
-  private def tileCache = new LRUCache[Types.TileCoord, Tile](64, _.clear())
+  private val tileCache = new LRUCache[Types.TileCoord, Tile](64, _.clear())
 }
 
 class MyView(context: HelloScaloid) extends GLSurfaceView(context) {
