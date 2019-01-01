@@ -257,7 +257,10 @@ class MyGLRenderer(cs: => MapCoordinateSystem)
       val tileIdxs = coord.visibleTiles(screenW, screenH)
       Log.e("ScalaMap", tileIdxs.toList.toString)
       val tiles = tileCache.get(
-        tileIdxs.map { case (x, y) => (x, y, coord.scale)}.toList,
+        tileIdxs
+          .map { case (x, y) => (x, y, coord.scale)}
+          .map(Types.normalize)
+          .toList,
         makeTile)
       tiles.foreach(_.draw(coord, screenW, screenH))
     }
@@ -278,14 +281,16 @@ class MyView(context: HelloScaloid) extends GLSurfaceView(context) {
 
   val mapScale: Int = 11
     
-  // !! latLon !!
+  // !! lonLat !!
   val offset: Math.Vector2 = Geo.toXY(
-    Math.Vector2(59.69, 30.03), mapScale)
+    Math.Vector2(30.03, 59.69), mapScale)
 
   var gestureRecognizer = GestureRecognizer.empty
     
-  var coordSystem = new AtomicReference(MapCoordinateSystem(
-      offset, Math.Matrix2.identity * 256, mapScale))
+  var coordSystem = new AtomicReference(
+    MapCoordinateSystem(offset, Math.Matrix2.identity * 256, mapScale)
+      //.moveInScreen(Math.Vector2(0, 0), Math.Vector2(getWidth/2, getHeight/2))
+    )
 
   override def onTouchEvent(e: MotionEvent): Boolean = {
     gestureRecognizer = gestureRecognizer.nextEvent(e)
