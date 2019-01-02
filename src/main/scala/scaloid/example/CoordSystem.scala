@@ -57,6 +57,13 @@ case class MapCoordinateSystem(
       visited + q.head)
   }
 
+  def isVisible(tc: Types.TileCoord)(screenW: Int, screenH: Int): Boolean = {
+    val zoomDiff = scale - tc._3
+    val multiply = if (zoomDiff >= 0) (1 << zoomDiff).toDouble else 1.toDouble/(1 << zoomDiff)
+    //val newTc = if (zoomDiff == 0) Math.Vector2()
+    false
+  }
+
   def visibleTiles(screenW: Int, screenH: Int): Seq[(Int, Int)] = {
     def inB(w: Math.Vector2): Boolean = {
       w.x >= 0 && w.x < screenW && w.y >= 0 && w.y < screenH
