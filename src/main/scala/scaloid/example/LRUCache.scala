@@ -4,6 +4,13 @@ import android.util.Log
 
 
 class LRUCache[K, V](size: Int, dispose: V => Unit) {
+  def contains(k: K): Boolean = {
+    cache.contains(k)
+  }
+
+  def toStream: Stream[(K, V)] = {
+    cache.iterator.toStream
+  }
 
   def get(keys: Seq[K], mkVal: K => V): Seq[V] = {
     //Log.e("ScalaMap", s"keys: ${keys}, cache size: ${cache.size}")
@@ -45,6 +52,11 @@ class LRUCache[K, V](size: Int, dispose: V => Unit) {
     //Log.e("ScalaMap", s"cache 2: ${cache.toList}")
 
     result.map(_._2)
+  }
+
+  def remove(k: K): Unit = {
+    cache.get(k).foreach(dispose)
+    cache.remove(k)
   }
 
   private def shrink(): Unit = {
