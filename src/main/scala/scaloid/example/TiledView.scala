@@ -95,13 +95,15 @@ class TiledView(context: ScalaOSM) extends GLSurfaceView(context) {
     
   // !! lonLat !!
   val offset: Math.Vector2 = Geo.toXY(
-    Math.Vector2(30.03, 59.69), mapScale)
+    Math.Vector2(30.32, 59.95), mapScale)
 
   var gestureRecognizer = GestureRecognizer.empty
-    
-  var coordSystem = new AtomicReference(
+
+  Log.e("ScalaMap", s"width: ${getWidth}, height: ${getHeight}")
+
+  lazy val coordSystem = new AtomicReference(
     MapCoordinateSystem(offset, Math.Matrix2.identity * 256, mapScale)
-      //.moveInScreen(Math.Vector2(0, 0), Math.Vector2(getWidth/2, getHeight/2))
+      .moveInScreen(Math.Vector2(0, 0), Math.Vector2(getWidth/2, getHeight/2))
     )
 
   override def onTouchEvent(e: MotionEvent): Boolean = {
