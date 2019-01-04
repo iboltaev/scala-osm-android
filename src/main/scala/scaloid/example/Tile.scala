@@ -81,13 +81,17 @@ case class Tile(x: Int, y: Int, z: Int)(textureStream: Observable[Bitmap]) {
   private var closed: Boolean = false
 
   private var subscription: Subscription = null
+  private var isEmpty: Boolean = true
 
-  def nonEmpty: Boolean = haveTexture
+  def nonEmpty: Boolean = !isEmpty
 
   def activate(): Unit = {
     if (subscription == null) {
       subscription = textureStream(Subscriber { bmp: Bitmap =>
-        TiledView.runOnRenderThread { setTexture(bmp) }
+        TiledView.runOnRenderThread {
+          isEmpty = false
+          setTexture(bmp)
+        }
       })
     }
   }
@@ -151,10 +155,10 @@ case class Tile(x: Int, y: Int, z: Int)(textureStream: Observable[Bitmap]) {
 
     GLES20.glUseProgram(program)
 
-    val v1 = toOgl(cs.toScreen(Math.Vector2(x, y)))
-    val v2 = toOgl(cs.toScreen(Math.Vector2(x, y + 1)))
-    val v3 = toOgl(cs.toScreen(Math.Vector2(x + 1, y + 1)))
-    val v4 = toOgl(cs.toScreen(Math.Vector2(x + 1, y)))
+    val v1 = toOgl(cs.toScreen((x, y, z)))
+    val v2 = toOgl(cs.toScreen((x, y + 1, z)))
+    val v3 = toOgl(cs.toScreen((x + 1, y + 1, z)))
+    val v4 = toOgl(cs.toScreen((x + 1, y, z)))
 
     squareCoords(0) = v1.x.toFloat; squareCoords(1) = v1.y.toFloat
     squareCoords(3) = v2.x.toFloat; squareCoords(4) = v2.y.toFloat

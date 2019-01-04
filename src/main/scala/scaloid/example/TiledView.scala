@@ -39,6 +39,12 @@ private class MyGLRenderer(cs: => MapCoordinateSystem)
   var screenW: Int = 0
   var screenH: Int = 0
 
+  def tileOrdering(zoom: Int): Ordering[Tile] = Ordering.by { tile =>
+    (tile.nonEmpty,
+      -(tile.z - zoom).abs,
+      tile.z)
+  }
+
   def makeTile(tc: Types.TileCoord): Tile = {
     Log.e("ScalaMap", s"makeTile ${tc}")
     val tile = new Tile(tc._1, tc._2, tc._3)(BitmapLoader.bitmap(Types.normalize(tc)))
@@ -69,12 +75,22 @@ private class MyGLRenderer(cs: => MapCoordinateSystem)
           .toList,
         makeTile)
       actualTiles.foreach(_.activate())
-      actualTiles.foreach(_.draw(coord, screenW, screenH))
+
       val actualKeys = actualTiles.map { t => (t.x, t.y, t.z) }.toSet
       val nonActual = tileCache.toStream.filterNot { case (k, _) => actualKeys.contains(k) }
+
       nonActual.foreach { case (k, t) =>
         t.unactivate()
       }
+
+      implicit val ordering: Ordering[Tile] = tileOrdering(coord.scale)
+
+      tileCache.toStream
+        .map(_._2)
+        .sorted
+        .foreach { t =>
+          t.draw(coord, screenW, screenH)
+        }
     }
   }
 

@@ -3,13 +3,30 @@ package org.openstreetmap.sample
 import scala.collection.immutable._
 import scala.language.implicitConversions
 
+import android.util.Log
 
 case class MapCoordinateSystem(
   start: Math.Vector2, basis: Math.Matrix2, scale: Int) {
 
   lazy val inverse = basis.inv
 
+  def toZoom(tc: Types.TileCoord): (Double, Double) = {
+    val zoomDiff = scale - tc._3
+    val multiply = 1 << zoomDiff.abs
+    val result = if (zoomDiff >= 0)
+      (tc._1.toDouble * multiply, tc._2.toDouble * multiply)
+    else
+      (tc._1.toDouble / multiply, tc._2.toDouble / multiply)
+    //Log.e("ScalaMap", s"origin ${tc}, zoomDiff: ${zoomDiff}, multiply: ${multiply}, result: ${result}")
+    result
+  }
+
   def toScreen(r: Math.Vector2): Math.Vector2 = basis * (r - start)
+
+  def toScreen(tc: Types.TileCoord): Math.Vector2 = {
+    toScreen(toZoom(tc))
+  }
+
   def toWorldXY(r: Math.Vector2): Math.Vector2 = (inverse * r) + start
 
   def moveInScreen(from: Math.Vector2, to: Math.Vector2) = {
@@ -33,10 +50,10 @@ case class MapCoordinateSystem(
     val m = Math.orthoMatrix1(x.x, x.y).inv
     val v = Math.Vector2(m.x00, m.x01)
 
-    if (v.mod >= 340 * 340 && scale < 19) {
+    if (v.mod >= 480 * 480 && scale < 19) {
       MapCoordinateSystem(
         y * 2, m * 0.5, scale + 1)
-    } else if (v.mod <= 170 * 170 && scale > 0) {
+    } else if (v.mod <= 240 * 240 && scale > 0) {
       MapCoordinateSystem(
         y * 0.5, m * 2, scale - 1)
     } else {
@@ -57,19 +74,12 @@ case class MapCoordinateSystem(
       visited + q.head)
   }
 
-  def isVisible(tc: Types.TileCoord)(screenW: Int, screenH: Int): Boolean = {
-    val zoomDiff = scale - tc._3
-    val multiply = if (zoomDiff >= 0) (1 << zoomDiff).toDouble else 1.toDouble/(1 << zoomDiff)
-    //val newTc = if (zoomDiff == 0) Math.Vector2()
-    false
-  }
-
-  def visibleTiles(screenW: Int, screenH: Int): Seq[(Int, Int)] = {
+  def isTileVisibleD(v: (Double, Double))(screenW: Int, screenH: Int): Boolean = {
     def inB(w: Math.Vector2): Boolean = {
       w.x >= 0 && w.x < screenW && w.y >= 0 && w.y < screenH
     }
 
-    def inBound(v: (Int, Int)): Boolean = {
+    def inBound(v: (Double, Double)): Boolean = {
       val lt = toScreen((v._1, v._2))
       val rt = toScreen((v._1 + 1, v._2))
       val lb = toScreen((v._1, v._2 + 1))
@@ -77,10 +87,22 @@ case class MapCoordinateSystem(
       inB(lt) || inB(rt) || inB(lb) || inB(rb)
     }
 
+    inBound(v)
+  }
+
+  def isTileVisible(v: (Int, Int))(screenW: Int, screenH: Int): Boolean = {
+    isTileVisibleD((v._1.toDouble, v._2.toDouble))(screenW, screenH)
+  }
+ 
+  def isTileVisible(tc: Types.TileCoord)(screenW: Int, screenH: Int): Boolean = {
+    isTileVisibleD(toZoom(tc))(screenW, screenH)
+  }
+
+  def visibleTiles(screenW: Int, screenH: Int): Seq[(Int, Int)] = {
     def tileNeighbours(x: Int, y: Int): Seq[(Int, Int)] =
       Seq((x - 1, y - 1), (x - 1, y), (x - 1, y + 1),
         (x + 1, y - 1), (x + 1, y), (x + 1, y + 1),
-        (x, y - 1), (x, y + 1)).filter(inBound)
+        (x, y - 1), (x, y + 1)).filter(isTileVisible(_)(screenW, screenH))
 
     val vertexes = Array[(Double, Double)](
       (0.0, 0.0), (screenW, 0.0),

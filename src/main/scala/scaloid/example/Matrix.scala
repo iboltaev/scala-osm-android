@@ -50,6 +50,7 @@ object Math {
     v1.x * v2.x + v1.y * v2.y
 
   implicit def toVector2(p: (Int, Int)): Vector2 = Vector2(p._1, p._2)
+  implicit def toVectord2(p: (Double, Double)): Vector2 = Vector2(p._1, p._2)
 
   def orthoMatrix1(x0: Double, x1: Double) = Matrix2(x0, x1, -x1, x0)
   def orthoMatrix2(x0: Double, x1: Double) = Matrix2(x0, x1, x1, -x0)
