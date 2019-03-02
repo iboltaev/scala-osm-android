@@ -3,15 +3,18 @@ package org.openstreetmap.sample
 import org.scaloid.common._
 
 class ScalaOSM extends SActivity {
+  var cv: Option[TiledView] = None
   onCreate {
-    contentView = TiledView.instance(this)
+    val v = new TiledView(this)
+    cv = Some(v)
+    contentView = v
   }
 
   onPause {
-    TiledView.instance.foreach(_.onPause())
+    cv.foreach(_.onPause())
   }
 
   onResume {
-    TiledView.instance.foreach(_.onResume())
+    cv.foreach(_.onResume())
   }
 }

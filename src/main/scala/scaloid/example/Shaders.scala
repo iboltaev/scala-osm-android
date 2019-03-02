@@ -35,7 +35,20 @@ import java.lang.Runnable
 
 
 object Shaders {
-  lazy val program = {
+  var currentProgram: Option[Int] = None
+
+  def clear(): Unit = {
+    currentProgram = None
+  }
+
+  def program: Int = {
+    if (currentProgram.isEmpty)
+      currentProgram = Some(makeProgram)
+
+    currentProgram.get
+  }
+
+  private def makeProgram = {
     val mp = GLES20.glCreateProgram()
 
     GLES20.glAttachShader(

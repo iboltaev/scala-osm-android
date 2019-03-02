@@ -88,7 +88,7 @@ case class Tile(x: Int, y: Int, z: Int, view: TiledView)(textureStream: Observab
   def activate(): Unit = {
     if (subscription == null) {
       subscription = textureStream(Subscriber { bmp: Bitmap =>
-        TiledView.runOnRenderThread {
+        view.runOnRenderThread {
           isEmpty = false
           setTexture(bmp)
         }

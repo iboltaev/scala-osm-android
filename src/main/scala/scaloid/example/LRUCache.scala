@@ -59,6 +59,11 @@ class LRUCache[K, V](size: Int, dispose: V => Unit) {
     cache.remove(k)
   }
 
+  def clear(): Unit = {
+    val keys: Seq[K] = cache.keys.toSeq
+    keys.foreach(remove)
+  }
+
   private def shrink(): Unit = {
     if (cache.size > size) {
       //Log.e("ScalaMap", "shrink " + cache.size.toString)

@@ -52,7 +52,9 @@ private class MyGLRenderer(view: TiledView, cs: => MapCoordinateSystem)
   }
 
   override def onSurfaceCreated(u: GL10, config: EGLConfig): Unit = {
-    GLES20.glClearColor(0.0f, 0.0f, 0.0f, 1.0f)
+    GLES20.glClearColor(1.0f, 1.0f, 1.0f, 1.0f)
+    Shaders.clear()
+    tileCache.clear()
   }
 
   override def onSurfaceChanged(u: GL10, width: Int, height: Int): Unit = {
@@ -61,6 +63,10 @@ private class MyGLRenderer(view: TiledView, cs: => MapCoordinateSystem)
   }
 
   override def onDrawFrame(u: GL10): Unit = {
+    drawFrame()
+  }
+
+  def drawFrame(): Unit = {
     Log.e("ScalaMap", "w: " + screenW + ", h: " + screenH)
 
     if (screenW != 0 && screenH != 0) {
@@ -86,9 +92,7 @@ private class MyGLRenderer(view: TiledView, cs: => MapCoordinateSystem)
       tileCache.toStream
         .map(_._2)
         .sorted
-        .foreach { t =>
-          t.draw(coord, screenW, screenH)
-        }
+        .foreach(_.draw(coord, screenW, screenH))
     }
   }
 
@@ -100,7 +104,7 @@ class TiledView(context: ScalaOSM) extends GLSurfaceView(context) {
   
   setEGLContextClientVersion(2);
 
-  private val renderer = new MyGLRenderer(coordSystem.get)
+  private val renderer = new MyGLRenderer(this, coordSystem.get)
 
   setRenderer(renderer)
   setRenderMode(GLSurfaceView.RENDERMODE_CONTINUOUSLY)
@@ -136,26 +140,10 @@ class TiledView(context: ScalaOSM) extends GLSurfaceView(context) {
 
     true
   }
-}
-
-object TiledView {
-  // quick & dirty singleton
-  private var instanceOpt: Option[TiledView] = None
-
-  def instance: Option[TiledView] = instanceOpt
-
-  def instance(context: ScalaOSM): TiledView = {
-    if (instanceOpt.isEmpty)
-      instanceOpt = Some(new TiledView(context))
-
-    instanceOpt.get
-  }
 
   def runOnRenderThread(f: => Unit): Unit = {
-    instanceOpt.foreach { view =>
-      view.queueEvent(new Runnable {
-        override def run(): Unit = { f }
-      })
-    }
+    queueEvent(new Runnable {
+      override def run(): Unit = { f }
+    })
   }
 }
