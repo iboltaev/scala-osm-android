@@ -33,21 +33,19 @@ import java.nio.file.Paths
 
 import java.lang.Runnable
 
-private class MyGLRenderer(cs: => MapCoordinateSystem) 
+private class MyGLRenderer(view: TiledView, cs: => MapCoordinateSystem) 
     extends GLSurfaceView.Renderer {
 
   var screenW: Int = 0
   var screenH: Int = 0
 
   def tileOrdering(zoom: Int): Ordering[Tile] = Ordering.by { tile =>
-    (tile.nonEmpty,
-      -(tile.z - zoom).abs,
-      tile.z)
+    (tile.nonEmpty, -(tile.z - zoom).abs, tile.z)
   }
 
   def makeTile(tc: Types.TileCoord): Tile = {
     Log.e("ScalaMap", s"makeTile ${tc}")
-    val tile = new Tile(tc._1, tc._2, tc._3)(BitmapLoader.bitmap(Types.normalize(tc)))
+    val tile = new Tile(tc._1, tc._2, tc._3, view)(BitmapLoader.bitmap(Types.normalize(tc)))
     tile.setTexture(
       EmptyTileRenderer.renderTile(tc._1, tc._2, tc._3, 1.0f))
     tile

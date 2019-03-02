@@ -33,7 +33,7 @@ import java.nio.file.Paths
 
 import java.lang.Runnable
 
-case class Tile(x: Int, y: Int, z: Int)(textureStream: Observable[Bitmap]) {
+case class Tile(x: Int, y: Int, z: Int, view: TiledView)(textureStream: Observable[Bitmap]) {
   val program = Shaders.program
 
   var vertexBuffer: FloatBuffer = null
