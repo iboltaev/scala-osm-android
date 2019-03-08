@@ -8,16 +8,26 @@ import android.view._
 import android.content._
 
 sealed trait Gesture
+case class Tap(pos: Math.Vector2) extends Gesture
 case class Move(from: Math.Vector2, to: Math.Vector2) extends Gesture
 case class Transform(
   from: (Math.Vector2, Math.Vector2),
   to: (Math.Vector2, Math.Vector2)) extends Gesture
 
-case class GestureRecognizer(prev: GestureRecognizer.Position, next: GestureRecognizer.Position) {
+case class GestureRecognizer(
+  orig: GestureRecognizer.Position,
+  prev: GestureRecognizer.Position,
+  next: GestureRecognizer.Position) {
+
   val gesture: Option[Gesture] = {
+    import GestureRecognizer.isInEpsilon
+
     val commonKeys = next.keySet.intersect(prev.keySet)
-    if (commonKeys.isEmpty) None
-    else if (commonKeys.size == 1) {
+    if (commonKeys.isEmpty) {
+      val prevOrigCommon = prev.keySet.intersect(orig.keySet)
+      if (prevOrigCommon.size != 1 || !isInEpsilon(orig, prev, 16)) None
+      else Some(Tap(orig.head._2._2))
+    } else if (commonKeys.size == 1) {
       Some(Move(prev(commonKeys.head)._2, next(commonKeys.head)._2))
     } else if (commonKeys.size == 2) {
       val prevArr = prev.toVector.sortBy(_._1).map(_._2._2)
@@ -33,14 +43,16 @@ case class GestureRecognizer(prev: GestureRecognizer.Position, next: GestureReco
     val action = ev.getActionMasked
 
     if (action != MotionEvent.ACTION_MOVE && action != MotionEvent.ACTION_DOWN) {
-      GestureRecognizer.empty
+      GestureRecognizer(orig, prev, Map.empty)
     } else {
       val m = for {
         idx <- 0 until ev.getPointerCount
         id = ev.getPointerId(idx)
       } yield id -> (idx, Math.Vector2(ev.getX(idx).toDouble, ev.getY(idx).toDouble))
 
-      GestureRecognizer(next, m.toMap)
+      val newOrig = if (action == MotionEvent.ACTION_DOWN) m.toMap else orig
+
+      GestureRecognizer(newOrig, next, m.toMap)
     }
   }
 }
@@ -48,5 +60,9 @@ case class GestureRecognizer(prev: GestureRecognizer.Position, next: GestureReco
 object GestureRecognizer {
   type Position = Map[Int, (Int, Math.Vector2)] // ID -> (Idx, position)
 
-  def empty = GestureRecognizer(Map.empty, Map.empty)
+  def empty = GestureRecognizer(Map.empty, Map.empty, Map.empty)
+
+  def isInEpsilon(p1: Position, p2: Position, eps: Double): Boolean = {
+    (p1.head._2._2 - p2.head._2._2).mod < eps
+  }
 }

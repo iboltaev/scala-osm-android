@@ -34,7 +34,7 @@ import java.nio.file.Paths
 import java.lang.Runnable
 
 
-object Shaders {
+class Shaders {
   var currentProgram: Option[Int] = None
 
   def clear(): Unit = {
@@ -86,4 +86,3 @@ object Shaders {
     "  gl_FragColor = texture2D(s_texture, v_texCoord);" +
     "}";
 }
-

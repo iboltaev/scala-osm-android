@@ -33,6 +33,8 @@ import java.nio.file.Paths
 
 import java.lang.Runnable
 
+import android.widget.Toast
+
 private class MyGLRenderer(view: TiledView, cs: => MapCoordinateSystem) 
     extends GLSurfaceView.Renderer {
 
@@ -53,7 +55,7 @@ private class MyGLRenderer(view: TiledView, cs: => MapCoordinateSystem)
 
   override def onSurfaceCreated(u: GL10, config: EGLConfig): Unit = {
     GLES20.glClearColor(1.0f, 1.0f, 1.0f, 1.0f)
-    Shaders.clear()
+    view.shaders.clear()
     tileCache.clear()
   }
 
@@ -104,6 +106,8 @@ class TiledView(context: ScalaOSM) extends GLSurfaceView(context) {
   
   setEGLContextClientVersion(2);
 
+  val shaders = new Shaders
+
   private val renderer = new MyGLRenderer(this, coordSystem.get)
 
   setRenderer(renderer)
@@ -126,19 +130,26 @@ class TiledView(context: ScalaOSM) extends GLSurfaceView(context) {
 
   override def onTouchEvent(e: MotionEvent): Boolean = {
     gestureRecognizer = gestureRecognizer.nextEvent(e)
+    val cs = coordSystem.get()
     gestureRecognizer.gesture.foreach {
       case Move(from, to) =>
-        val cs = coordSystem.get()
         coordSystem.set(cs.moveInScreen(from, to))
       case Transform(from, to) =>
-        val cs = coordSystem.get()
         coordSystem.set(cs.transformInScreen(from, to))
+      case Tap(pos) =>
+        val xy = cs.toWorldXY(pos)
+        onTap(xy.x, xy.y, cs.scale)
       case _ =>
     }
 
     Log.e("ScalaMap", coordSystem.toString)
 
     true
+  }
+
+  protected def onTap(x: Double, y: Double, scale: Int): Unit = {
+    val toast = Toast.makeText(context, s"""Tap @ ${"%.2f".format(x)} : ${"%.2f".format(y)}, scale: ${scale}""", Toast.LENGTH_LONG)
+    toast.show
   }
 
   def runOnRenderThread(f: => Unit): Unit = {
