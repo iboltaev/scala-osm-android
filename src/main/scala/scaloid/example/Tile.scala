@@ -119,9 +119,13 @@ case class Tile(x: Int, y: Int, z: Int, view: TiledView)(textureStream: Observab
   def setTexture(bitmap: Bitmap): Unit = {
     Log.e("ScalaMap", "setTexture")
 
+    if (bitmap == null)
+      return
+
     cleanTexture()
 
     haveTexture = true
+
     GLES20.glGenTextures(1, texturenames, 0);
 
     GLES20.glActiveTexture(GLES20.GL_TEXTURE0);

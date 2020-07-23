@@ -50,10 +50,10 @@ case class MapCoordinateSystem(
     val m = Math.orthoMatrix1(x.x, x.y).inv
     val v = Math.Vector2(m.x00, m.x01)
 
-    if (v.mod >= 480 * 480 && scale < 19) {
+    if (v.mod >= 800 * 800 && scale < 19) {
       MapCoordinateSystem(
         y * 2, m * 0.5, scale + 1)
-    } else if (v.mod <= 240 * 240 && scale > 0) {
+    } else if (v.mod <= 400 * 400 && scale > 0) {
       MapCoordinateSystem(
         y * 0.5, m * 2, scale - 1)
     } else {

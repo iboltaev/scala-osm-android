@@ -69,12 +69,14 @@ private class MyGLRenderer(view: TiledView, cs: => MapCoordinateSystem)
   }
 
   def drawFrame(): Unit = {
-    Log.e("ScalaMap", "w: " + screenW + ", h: " + screenH)
+    //Log.e("ScalaMap", "w: " + screenW + ", h: " + screenH)
 
     if (screenW != 0 && screenH != 0) {
       val coord = cs
       val tileIdxs = coord.visibleTiles(screenW, screenH)
-      Log.e("ScalaMap", tileIdxs.toList.toString)
+
+      //Log.e("ScalaMap", tileIdxs.toList.toString)
+
       val actualTiles = tileCache.get(
         tileIdxs
           .map { case (x, y) => (x, y, coord.scale) }
@@ -98,7 +100,7 @@ private class MyGLRenderer(view: TiledView, cs: => MapCoordinateSystem)
     }
   }
 
-  private val tileCache = new LRUCache[Types.TileCoord, Tile](64, _.clear())
+  private val tileCache = new LRUCache[Types.TileCoord, Tile](128, _.clear())
 }
 
 class TiledView(context: ScalaOSM) extends GLSurfaceView(context) {
@@ -124,7 +126,7 @@ class TiledView(context: ScalaOSM) extends GLSurfaceView(context) {
   Log.e("ScalaMap", s"width: ${getWidth}, height: ${getHeight}")
 
   lazy val coordSystem = new AtomicReference(
-    MapCoordinateSystem(offset, Math.Matrix2.identity * 256, mapScale)
+    MapCoordinateSystem(offset, Math.Matrix2.identity * 400, mapScale)
       .moveInScreen(Math.Vector2(0, 0), Math.Vector2(getWidth/2, getHeight/2))
     )
 
